@@ -34,13 +34,11 @@ class qspi_base_seq_c extends base_sequence;
     m_rd_seq.set_sequencer(m_qspi_env.m_apb_env.master_agent.m_apb_master_sequencer);
     m_rd_seq.apb_master_read(addr, data);
     error = (m_rd_seq.last_pslverr == ERROR);
-    `ifdef QSPI_TESTPLAN
     if (!error) begin
       m_qspi_env.m_coverage.register_cg.sample(int'(addr));
       if (addr==32'h08)
         m_qspi_env.m_coverage.fifo_cg.sample(int'(data[13:8]),int'(data[21:16]));
     end
-    `endif
   endtask: reg_read32
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

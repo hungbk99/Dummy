@@ -13,7 +13,6 @@ package qspi_seq_pkg;
   `include "qspi_reg_access_seq.svh"
   `include "qspi_transfer_base_seq.svh"
   `include "qspi_indirect_seq.svh"
-`ifdef QSPI_TESTPLAN
   `include "qspi_feature_base_seq.svh"
   `include "qspi_register_access_seq.svh"
   `include "qspi_clock_reset_seq.svh"
@@ -29,7 +28,6 @@ package qspi_seq_pkg;
   `include "qspi_dma_seq.svh"
   `include "qspi_sioo_seq.svh"
   `include "qspi_delay_seq.svh"
-`endif
 
 endpackage: qspi_seq_pkg
 

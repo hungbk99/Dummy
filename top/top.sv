@@ -229,18 +229,13 @@ module top #(parameter int AHB_TIMEOUT_CYCLES=1048576) ();
   // DUT instance
   // ----------------------------------------------------------
 
-`ifdef QSPI_TESTPLAN
   m_qspi_wrap #(.PARA_BUS_CLK_TIMEOUT(AHB_TIMEOUT_CYCLES)) dut (
-`else
-  m_qspi_wrap dut (
-`endif
     // Keep the bidirectional flash input explicit; the remaining matching
     // ports use the wildcard connection below.
     .i_qspi_pad_io (i_qspi_pad_io),
     .*
   );
 
-`ifdef QSPI_TESTPLAN
   qspi_test_if test_if(
     .qclk(i_qspi_clk),.pclk(i_qspi_pclk),.hclk(i_qspi_hclk),.dclk(i_qspi_dma_clk),
     .qresetn(i_qspi_rst_n),.presetn(i_qspi_preset_n),.hresetn(i_qspi_hreset_n),.dresetn(i_qspi_dma_rst_n),
@@ -263,7 +258,6 @@ module top #(parameter int AHB_TIMEOUT_CYCLES=1048576) ();
     #(limit_us*1us);
     $fatal(1,"QSPI testplan global watchdog expired");
   end
-`endif
 
   // ----------------------------------------------------------
   // Start UVM
