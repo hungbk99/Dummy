@@ -25,15 +25,12 @@ task qspi_dma_seq_c::body();
   qspi_write_reg("QSPI_DLR",15);
   qspi_write_reg("QSPI_CCR",'h01002502);
   qspi_write_reg("QSPI_AR",flash_base_addr);
-  vif.wait_core(12);
-  verify(vif.dma_tx_req,"DMA TX request when FIFO has free space");
-  @(negedge vif.dclk);
-  vif.dma_tx_clr=1;
-  repeat(clear_pulse_cycles) @(negedge vif.dclk);
-  vif.dma_tx_clr=0;
+  irq_vif.wait_core(12);
+  verify(dma_vif.tx_req,"DMA TX request when FIFO has free space");
+  dma_vif.pulse_tx_clear(clear_pulse_cycles);
   abort_controller();
-  vif.wait_core(12);
-  verify(!vif.dma_tx_req&&!vif.dma_rx_req,"DMA cancelled after abort");
+  irq_vif.wait_core(12);
+  verify(!dma_vif.tx_req&&!dma_vif.rx_req,"DMA cancelled after abort");
   bin_pass("DMA TX request/clear and abort cancellation; external DMA engine not modeled");
 endtask : body
 

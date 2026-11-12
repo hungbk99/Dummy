@@ -3,12 +3,14 @@
 
 package qspi_seq_pkg;
   import uvm_pkg::*;
+  import ahb_package::*;
   import apb_enum_pkg::*;
   import apb_master_pkg::*;
   import base_pkg::*;
   import qspi_env_pkg::*;
 
   `include "uvm_macros.svh"
+  `include "qspi_ahb_access_seq.svh"
   `include "qspi_base_seq.svh"
   `include "qspi_reg_access_seq.svh"
   `include "qspi_transfer_base_seq.svh"

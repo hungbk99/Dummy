@@ -3,7 +3,12 @@
 
 // Common operations and reporting only. Each feature has its own factory class/body.
 class qspi_feature_base_seq_c extends qspi_transfer_base_seq_c;
-  virtual qspi_test_if vif;
+  qspi_signal_state_c signals;
+  virtual qspi_irq_if irq_vif;
+  virtual qspi_dma_if dma_vif;
+  extern task ahb_access(bit [31:0] address, output bit [31:0] data,
+                         output bit error, input bit write_access=0);
+
   string case_name;
   int checks = 0;
   bit active_ckmode;
@@ -59,10 +64,28 @@ endfunction : new
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 task qspi_feature_base_seq_c::pre_body();
   super.pre_body();
-  if (!uvm_config_db#(virtual qspi_test_if)::get(null, "", "qspi_test_vif", vif))
-  `uvm_fatal("QSPI_SETUP", "Missing qspi_test_vif")
+  if (!uvm_config_db#(qspi_signal_state_c)::get(null, "", "qspi_signal_state", signals))
+  `uvm_fatal("QSPI_SETUP", "Missing QSPI signal observations")
+  if (!uvm_config_db#(virtual qspi_irq_if)::get(null, "", "qspi_irq_vif", irq_vif))
+    `uvm_fatal("QSPI_SETUP", "Missing IRQ monitor interface")
+  if (!uvm_config_db#(virtual qspi_dma_if)::get(null, "", "qspi_dma_vif", dma_vif))
+    `uvm_fatal("QSPI_SETUP", "Missing DMA interface")
+`ifdef VERILATOR
+  // XIP has a directed matrix that does not need an external SMT solver.
+  if (case_name == "xip") begin
+    flash_base_addr = 32'h0001_0000;
+    data_seed = 32'h1357_2468;
+    repeat_count = 2;
+    idle_periods = 0;
+    poll_interval = 0;
+    `uvm_info("QSPI_DIRECTED", "Verilator XIP: deterministic legal stimulus; constrained randomization disabled", UVM_LOW)
+  end else begin
+`endif
   if (!this.randomize())
-  `uvm_fatal("QSPI_RANDOMIZE", "Cannot randomize sequence; check constraints and Verilator SMT solver setup")
+    `uvm_fatal("QSPI_RANDOMIZE", "Cannot randomize sequence; check constraints and SMT solver setup")
+`ifdef VERILATOR
+  end
+`endif
 
   // Keep the programmed flash context stable while individual scenarios randomize.
   flash_base_addr.rand_mode(0);
@@ -151,8 +174,8 @@ task qspi_feature_base_seq_c::abort_controller();
     if(!cr[1] && !sr[6]) begin
       verify(sr[1],"abort sets TCF");
       verify(sr[21:16]==0 && sr[13:8]==0,"abort flushes RX/TX FIFO");
-      vif.wait_core();
-      verify(!vif.dma_tx_req && !vif.dma_rx_req,"abort suppresses DMA requests");
+      irq_vif.wait_core();
+      verify(!dma_vif.tx_req && !dma_vif.rx_req,"abort suppresses DMA requests");
       return;
     end
   end
@@ -246,21 +269,46 @@ task qspi_feature_base_seq_c::enter_xip(int lanes=1,bit ddr=0);
   ccr=read_ccr(lanes,ddr);
   ccr[27:26]=3;
   qspi_write_reg("QSPI_CCR",ccr);
-  vif.wait_core(8);
+  irq_vif.wait_core(8);
 endtask : enter_xip
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+task qspi_feature_base_seq_c::ahb_access(bit [31:0] address,
+    output bit [31:0] data, output bit error, input bit write_access=0);
+  qspi_ahb_access_seq_c access_seq;
+  access_seq = qspi_ahb_access_seq_c::type_id::create("access_seq");
+  access_seq.address = address;
+  access_seq.write_access = write_access;
+  access_seq.start(m_qspi_env.m_ahb_agent.sequencer);
+  data = access_seq.result.read_data[0];
+  error = access_seq.result.responses[0] != AHB_OKAY;
+endtask : ahb_access
+
 task qspi_feature_base_seq_c::xip_check(int bytes,bit sequential=0);
   bit [31:0] data;
   bit error;
   int start_failures=failures;
   int start_errors=uvm_report_server::get_server().get_severity_count(UVM_ERROR);
-  for(int offset=0;offset<bytes;offset+=4) begin
-    vif.ahb_access(flash_base_addr+offset,data,error,0,sequential && offset!=0);
-    verify(!error,$sformatf("XIP HRESP OK address=%08h",flash_base_addr+offset));
-    for(int b=0;b<4 && offset+b<bytes;b++) begin
-      verify(data[b*8+:8]===image[(offset+b)/4][((offset+b)%4)*8+:8],$sformatf("XIP byte %0d",offset+b));
-      read_bytes++;
+  for(int offset=0;offset<bytes;) begin
+    qspi_ahb_access_seq_c access_seq;
+    int beats;
+    beats = sequential ? (bytes-offset+3)/4 : 1;
+    if (beats > (1024-int'((flash_base_addr+offset)&32'h3ff))/4)
+      beats = (1024-int'((flash_base_addr+offset)&32'h3ff))/4;
+    access_seq = qspi_ahb_access_seq_c::type_id::create("xip_access_seq");
+    access_seq.address = flash_base_addr+offset;
+    access_seq.beats = beats;
+    access_seq.incrementing = sequential;
+    access_seq.start(m_qspi_env.m_ahb_agent.sequencer);
+    for(int beat=0;beat<beats;beat++) begin
+      data = access_seq.result.read_data[beat];
+      error = access_seq.result.responses[beat] != AHB_OKAY;
+      verify(!error,$sformatf("XIP HRESP OK address=%08h",flash_base_addr+offset));
+      for(int b=0;b<4 && offset+b<bytes;b++) begin
+        verify(data[b*8+:8]===image[(offset+b)/4][((offset+b)%4)*8+:8],$sformatf("XIP byte %0d",offset+b));
+        read_bytes++;
+      end
+      offset+=4;
     end
   end
   qspi_wait_idle();

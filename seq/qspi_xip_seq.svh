@@ -30,8 +30,14 @@ task qspi_xip_seq_c::body();
   for(int lane=1;lane<=4;lane*=2) begin
     foreach (sizes[n]) begin
       int requested_bytes = sizes[n];
+`ifdef VERILATOR
+      transfer_bytes = requested_bytes;
+      lane_count = lane;
+      post_randomize();
+`else
       if (!this.randomize() with { transfer_bytes == requested_bytes; lane_count == lane; })
-      `uvm_fatal("QSPI_RANDOMIZE", "Cannot randomize XIP size/lane bin")
+        `uvm_fatal("QSPI_RANDOMIZE", "Cannot randomize XIP size/lane bin")
+`endif
       enter_xip(lane_count);
       xip_check(transfer_bytes,1);
       bin_pass($sformatf("XIP lanes=%0d bytes=%0d",lane_count,transfer_bytes));
@@ -39,12 +45,12 @@ task qspi_xip_seq_c::body();
   end
   enter_xip();
   xip_check(4);
-  before_frames=vif.frames;
+  before_frames=signals.frames;
   xip_check(4);
-  verify(vif.frames==before_frames,"cache hit creates no serial frame");
-  vif.ahb_access('h00200000,data,error);
+  verify(signals.frames==before_frames,"cache hit creates no serial frame");
+  ahb_access('h00200000,data,error);
   verify(error,"out-of-range AHB address returns ERROR");
-  vif.ahb_access(flash_base_addr,data,error,1);
+  ahb_access(flash_base_addr,data,error,1);
   verify(error,"AHB writes return ERROR");
   bin_pass("XIP sizes, cache hit, range/write errors");
 endtask : body

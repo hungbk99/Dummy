@@ -30,9 +30,9 @@ task qspi_delay_seq_c::body();
     repeat(2) begin
       qspi_write_reg("QSPI_CCR",'h106);
       qspi_wait_complete();
-      verify(vif.setup_ns+0.001>=level*800.0,$sformatf("DLY.CSS=%0d minimum setup",level));
-      verify(vif.hold_ns+0.001>=level*800.0,$sformatf("DLY.CSH=%0d minimum hold",level));
-      verify(vif.idle_ns+0.001>=level*800.0,$sformatf("DLY.CSIDLE=%0d minimum idle",level));
+      verify(signals.setup_ns+0.001>=level*800.0,$sformatf("DLY.CSS=%0d minimum setup",level));
+      verify(signals.hold_ns+0.001>=level*800.0,$sformatf("DLY.CSH=%0d minimum hold",level));
+      verify(signals.idle_ns+0.001>=level*800.0,$sformatf("DLY.CSIDLE=%0d minimum idle",level));
     end
     m_qspi_env.m_coverage.delay_cg.sample(delay_periods,delay_periods,delay_periods,failures==0);
     bin_pass($sformatf("DLY CSS/CSH/CSIDLE=%0d",level));

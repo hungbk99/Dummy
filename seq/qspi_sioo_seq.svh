@@ -28,17 +28,17 @@ task qspi_sioo_seq_c::body();
   // VCR XIP enabled, four dummy cycles.
   configure();
   qspi_write_reg("QSPI_CCR",'h1f102deb);
-  vif.wait_core(8);
-  before_edges=vif.sclk_rises;
-  vif.ahb_access(flash_base_addr,data,error);
+  irq_vif.wait_core(8);
+  before_edges=signals.sclk_rises;
+  ahb_access(flash_base_addr,data,error);
   verify(!error&&data===image[0],"SIOO first EB frame data");
   qspi_wait_idle();
-  first_edges=vif.sclk_rises-before_edges;
-  before_edges=vif.sclk_rises;
-  vif.ahb_access(flash_base_addr+continuation_offset,data,error);
+  first_edges=signals.sclk_rises-before_edges;
+  before_edges=signals.sclk_rises;
+  ahb_access(flash_base_addr+continuation_offset,data,error);
   verify(!error&&data===image[continuation_offset/4],"SIOO continuation frame data");
   qspi_wait_idle();
-  second_edges=vif.sclk_rises-before_edges;
+  second_edges=signals.sclk_rises-before_edges;
   verify(first_edges-second_edges==8,"SIOO continuation omits eight instruction clocks");
   bin_pass("flash continuous-read SIOO first/continuation frames");
 endtask : body

@@ -44,14 +44,14 @@ task qspi_frame_format_seq_c::body();
       ccr[17:16]=2'(alternate_bytes-1);
       ccr[22:18]=5'(dummy_cycles);
       qspi_write_reg("QSPI_ABR",alternate_data);
-      before_edges=vif.sclk_rises;
+      before_edges=signals.sclk_rises;
       qspi_write_reg("QSPI_CCR",ccr);
       qspi_write_reg("QSPI_AR",0);
       qspi_wait_complete();
       expected=8+address_bytes*8+alternate_bytes*8+dummy;
-      verify(vif.sclk_rises-before_edges==expected,$sformatf("frame address=%0d alternate=%0d dummy=%0d SCLK count expected=%0d actual=%0d",address_bytes,alternate_bytes,dummy,expected,vif.sclk_rises-before_edges));
+      verify(signals.sclk_rises-before_edges==expected,$sformatf("frame address=%0d alternate=%0d dummy=%0d SCLK count expected=%0d actual=%0d",address_bytes,alternate_bytes,dummy,expected,signals.sclk_rises-before_edges));
       m_qspi_env.m_coverage.frame_cg.sample(address_bytes,alternate_bytes,dummy_cycles,
-        vif.sclk_rises-before_edges==expected && failures==0);
+        signals.sclk_rises-before_edges==expected && failures==0);
       bin_pass($sformatf("frame address=%0d alternate=%0d dummy=%0d",address_bytes,alternate_bytes,dummy));
     end
   end

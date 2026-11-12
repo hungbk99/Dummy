@@ -51,12 +51,12 @@ task qspi_abort_seq_c::body();
     start_failures=failures;
     enter_xip();
     fork
-    begin vif.ahb_access(flash_base_addr+'h4000,data,error);
+    begin ahb_access(flash_base_addr+'h4000,data,error);
       verify(error,"pending AHB fetch aborted with ERROR");
     end
     begin
-      @(negedge vif.csn);
-      vif.wait_core(abort_delay_cycles);
+      signals.wait_frame_start();
+      irq_vif.wait_core(abort_delay_cycles);
       abort_controller();
     end
     join

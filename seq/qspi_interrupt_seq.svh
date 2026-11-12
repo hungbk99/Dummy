@@ -92,10 +92,10 @@ endtask : body
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 task qspi_interrupt_seq_c::check_irq(bit expected,string label,int source,int action);
   int start_failures=failures;
-  vif.wait_core(4);
+  irq_vif.wait_core(4);
   repeat(irq_observe_cycles) begin
-    verify(vif.irq===expected,label);
-    vif.wait_core(1);
+    verify(irq_vif.irq===expected,label);
+    irq_vif.wait_core(1);
   end
   m_qspi_env.m_coverage.irq_cg.sample(source,expected,action,failures==start_failures);
 endtask : check_irq
