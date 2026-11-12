@@ -1,0 +1,17 @@
+{
+  "registers": "qspi_register_access_seq_c",
+  "clocks": "qspi_clock_reset_seq_c",
+  "indirect": "qspi_indirect_matrix_seq_c",
+  "frames": "qspi_frame_format_seq_c",
+  "fifo": "qspi_fifo_seq_c",
+  "polling": "qspi_polling_seq_c",
+  "xip": "qspi_xip_seq_c",
+  "timeout": "qspi_ahb_timeout_seq_c",
+  "mixed": "qspi_mode_switch_seq_c",
+  "irq": "qspi_interrupt_seq_c",
+  "abort": "qspi_abort_seq_c",
+  "dma": "qspi_dma_seq_c",
+  "sioo": "qspi_sioo_seq_c",
+  "delays": "qspi_delay_seq_c",
+  "indirect_smoke": "qspi_indirect_seq_c"
+}

@@ -1,0 +1,21 @@
+# Directed compatibility smoke: runs with the connected Micron N25Q model.
+# No SMT solver required. The split constrained-random tests are in full.yaml.
+version: 1
+seeds: [1]
+common:
+  plusargs:
+    - +UVM_VERBOSITY=UVM_LOW
+    - +UVM_MAX_QUIT_COUNT=0
+    - +QSPI_WATCHDOG_US=100000
+  options:
+    timeout_seconds: 240
+    # Additional Verilator compile arguments; simulator YAML supplies RTL/UVM files.
+    compile:
+      - --assert
+      - --coverage-user
+profiles:
+  normal:
+    config: qspi_testplan.yaml
+tests:
+  - case: indirect_smoke
+    profile: normal

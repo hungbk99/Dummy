@@ -1,0 +1,95 @@
+{
+  "workbook": "FU3_IP_Testplan (2).xlsx",
+  "sha256": "842ca10521b5f4d548c0ba29f8abf276fc8f425258ba4ce02ef3f97063e29348",
+  "sheet": "QSPI",
+  "items": [
+    {
+      "row": 10,
+      "id": "QSPI_0",
+      "category": "Register Access",
+      "description": "FPT QSPI provide a list of register to configure and check the status through APB interface",
+      "bins": "* Operation: Read/Write\n* Map, unmap register, reserved region",
+      "criteria": "* All register can be access\n* Default value is correct.\n* No Hang, reserved region access return SLVERR\n* SVA",
+      "flow": "1) CRM relase Clock/Reset\n2) After booting time and CPU wake up, CPU perform read access to all QSPI register to check for default value\n3) Perform register read/write to check the register behavior with random access value",
+      "workbook_status": "PASS",
+      "priority": "HIGH"
+    },
+    {
+      "row": 11,
+      "id": "QSPI_1",
+      "category": "Clock/Reset",
+      "description": "QSPI required below clock and reset\ni_qspi_clk  (TBD - MHZ)\ni_qspi_pclk (TBD - MHZ)\ni_qspi_hclk (TBD - MHZ)\ni_qspi_dma_clk (TBD - MHZ)\n\ni_qspi_rst_n \ni_qspi_preset_n \ni_qspi_hreset_n \ni_qspi_dma_rst_n \n\n",
+      "bins": "",
+      "criteria": "* Correct clock frequency\n* All reset is release on POR, system reset\n* SVA",
+      "flow": "Cheker item enable for all test cases",
+      "workbook_status": "WAIVE",
+      "priority": "HIGH"
+    },
+    {
+      "row": 12,
+      "id": "QSPI_2",
+      "category": "Indirect Transfer",
+      "description": "QSPI can transfer data by push/pop the TX/RX FIFO through APB interface \n\nQSPI support SDR and DDR. In DDR mode the address, alternate-byte and data phases use both SCLK edges",
+      "bins": "* Operation: Read/Write\n* TX FIFO, RX FIFO: full, empty\n* FLASH: Micron, Macronix, Infineon\n* Single/Dual/Quad Mode\n* SSR/DDR\n* CPOL/CPHA",
+      "criteria": "* Data integrity\n* Correct interrupt event\n* SVA",
+      "flow": "1) CRM relase Clock/Reset\n2) After booting time and CPU wake up, configure QSPI to operate in Indirect mode\n3) Stream/fetch data into/from FLASH by CPU or DMA.\n4) Wait for corresponding interrupt and read status register, memory information.\n5) Check for data intergrity\n6) Repeat step 3-4-5 multiple time\n",
+      "workbook_status": "PASS",
+      "priority": "HIGH"
+    },
+    {
+      "row": 13,
+      "id": "QSPI_3",
+      "category": "Automatic Status-Polling Transfer",
+      "description": "The Automatic status-polling mode is used in below cases:\n* To read QSPI Flash memory status register\n* To poll autonomously for the end of an operation: QSPI Controller polls the status register inside the\nmemory\n\nQSPI support SDR and DDR. In DDR mode the address, alternate-byte and data phases use both SCLK edges",
+      "bins": "* Operation: Read\n* DLR.DL = {\n   min: [0:'hF]\n   mid: ['h10:'1-1]\n   max: ['1]\n}\n* FLASH: Micron, Macronix, Infineon\n* Single/Dual/Quad Mode\n* SSR/DDR\n* CPOL/CPHA",
+      "criteria": "* Data integrity\n* Correct interrupt event\n* SVA",
+      "flow": "1) CRM relase Clock/Reset\n2) After booting time and CPU wake up, configure QSPI to operate in Status-Polling mode\n3) Stream/fetch data into/from FLASH by CPU \n4) Wait for corresponding interrupt and read status register, memory information.\n5) Check for data intergrity\n6) Repeat step 3-4-5 multiple time",
+      "workbook_status": "TODO",
+      "priority": "HIGH"
+    },
+    {
+      "row": 14,
+      "id": "QSPI_4",
+      "category": "Memory-Mapped Transfer (XIP)",
+      "description": "In Memory-mapped mode the external memory is seen by the system as it was an internal memory. This mode\nallows all AHB masters to access the QSPI memory as an internal memory. The CPU can execute code from\nthe QSPI memory as well.\n\nQSPI support SDR and DDR. In DDR mode the address, alternate-byte and data phases use both SCLK edges",
+      "bins": "* Operation: Read\n* Image size(byte): 1, 4, 8, 16, 32, 128, [256:1024] \n* FLASH: Micron, Macronix, Infineon\n* Single/Dual/Quad Mode\n* SSR/DDR\n* CPOL/CPHA",
+      "criteria": "* Data integrity\n* Correct interrupt event\n* SVA",
+      "flow": "1) CRM relase Clock/Reset\n2) After booting time and CPU wake up, configure QSPI to operate in XIP mode\n3) Fetch instructiond from FLASH into CPU\n4) Wait for corresponding interrupt and read status register, memory information.\n5) Check for data intergrity\n6) Repeat step 3-4-5 multiple time",
+      "workbook_status": "TODO",
+      "priority": "HIGH"
+    },
+    {
+      "row": 19,
+      "id": "QSPI_5",
+      "category": "Mixing transfer type",
+      "description": "QSPI can be configure and transfer in 3 different mode. This test expect to switch between these transfer mode and expect no hang occur",
+      "bins": "* Operation: Read\n* Image size(byte): 1, 4, 8, 16, 32, 128, [256:1024] \n* FLASH: Micron, Macronix, Infineon\n* Single/Dual/Quad Mode\n* SSR/DDR",
+      "criteria": "* Data integrity\n* Correct interrupt event\n* SVA",
+      "flow": "1) CRM relase Clock/Reset\n2) After booting time and CPU wake up\n3) Random configure QSPI mode and perform transfer \n4) Repeat 3) untill all QSPI mode is covered ",
+      "workbook_status": "TODO",
+      "priority": ""
+    },
+    {
+      "row": 20,
+      "id": "QSPI_6",
+      "category": "Interrupt",
+      "description": "o_qspi_int_irq is an active-high level, synchronous to i_qspi_clk. It is the OR of the 8 flag/enable pairs of Table 6-9. Each flag stays set until software clears it, except TXFTF and RXFTF, which are set again while their condition holds. If a hardware set and a software clear of the same flag happen in the same cycle, the flag stays set",
+      "bins": "* All interrupt toggle\n* FLASH: Micron, Macronix, Infineon",
+      "criteria": "* Interrupt is level\n* Each interrupt can be clear independently\n* Status register is correct map to corresponding IRQ\n* SVA",
+      "flow": "This feature is verifed by QSPI_2, QSPI_3, QSPI_4",
+      "workbook_status": "TODO",
+      "priority": "HIGH"
+    },
+    {
+      "row": 21,
+      "id": "QSPI_7",
+      "category": "Abort and Error Handling",
+      "description": "Writing CR.ABORT = 1 closes the ongoing frame at the next byte boundary at the end of an SCLK period (CSN high). It also flushes the TX and RX FIFOs, stops polling, cancels the unfinished DMA transfer (both DMA requests stay 0 until the next accepted CCR write, DEC-044), and ends a pending AHB fetch with ERROR. SR.TCF = 1, SR.BUSY = 0 and CR.ABORT = 0 change together once every block is idle. ",
+      "bins": "* Transfer mode: Indirect, status-polling, xip\n* FLASH: Micron, Macronix, Infineon",
+      "criteria": "* After FLUSH, QSPI can resume normal operation\n* SVA",
+      "flow": "1) CRM relase Clock/Reset\n2) After booting time and CPU wake up, random configure QSPI transfer mode\n3) Perform read/write operation with FLASH\n4) Send Abort command.\n5) Wait for corresponding interrupt and read status register, memory information.\n6) Random configure QSPI transfer mode and send additional transfer\n7) Repeat step 2-6 2 times",
+      "workbook_status": "TODO",
+      "priority": "LOW"
+    }
+  ]
+}

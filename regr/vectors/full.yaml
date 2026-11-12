@@ -1,0 +1,38 @@
+# All split UVM tests plus the reference smoke. Requires Z3/CVC5.
+# Each case/seed gets its own log, coverage.dat and results entry.
+# Known indirect DDR and pending-AHB abort failures remain failures.
+version: 1
+seeds: [1, 7, 42]
+common:
+  plusargs:
+    - +UVM_VERBOSITY=UVM_LOW
+    - +UVM_MAX_QUIT_COUNT=0
+    - +QSPI_WATCHDOG_US=100000
+  options:
+    timeout_seconds: 240
+    # Additional Verilator compile arguments; simulator YAML supplies RTL/UVM files.
+    compile:
+      - --assert
+      - --coverage-user
+profiles:
+  normal:
+    config: qspi_testplan.yaml
+  timeout:
+    config: qspi_testplan_timeout.yaml
+tests:
+  - case: registers
+  - case: clocks
+  - case: indirect_smoke
+  - case: indirect
+  - case: frames
+  - case: fifo
+  - case: polling
+  - case: xip
+  - case: sioo
+  - case: delays
+  - case: mixed
+  - case: irq
+  - case: abort
+  - case: dma
+  - case: timeout
+    profile: timeout
