@@ -1,0 +1,47 @@
+DUT_FILELIST:
+  - qspi_new_rtl.f
+DUT_NAME: m_qspi_wrap
+TB_TOP: top
+INCR:
+  - /home/hungle/workspace/uvm-core/src
+  - common/base_lib
+  - common/vip/apb/include
+  - common/vip/apb/source
+  - common/vip/apb/source/master
+  - common/vip/apb/source/slave
+  - common/vip/apb/tests
+  - common/vip/ahb/include
+  - common/vip/ahb/src
+  - common/vip/ahb/src/common
+  - common/vip/ahb/src/master_agent
+  - common/vip/ahb/src/slave_agent
+  - common/vip/ahb/src/env
+  - common/vip/ahb/src/sequence_lib
+  - common/vip/ahb/src/transaction
+  - connect
+  - connect/flash/n25q256a
+  - env
+  - seq
+  - test
+common:
+  - sdr_flash: connect/flash/picosoc/qspi_flash_sdr.v
+  - uvm_package: /home/hungle/workspace/uvm-core/src/uvm_pkg.sv
+  - ahb_interface: common/ahb_interface.sv
+  - apb_interface: common/vip/apb/include/apb_if.sv
+  - apb_system_interface: common/vip/apb/include/apb_sys_if.sv
+  - base_package: common/base_lib/base_pkg.sv
+  - apb_master_package: common/vip/apb/source/master/apb_master_pkg.sv
+  - apb_slave_package: common/vip/apb/source/slave/apb_slave_pkg.sv
+  - apb_environment_package: common/vip/apb/source/apb_env_pkg.sv
+  - ahb_package: common/vip/ahb/src/ahb_package.sv
+CONNECTION: []
+env:
+  - qspi_environment: env
+seq:
+  - qspi_sequences: seq
+test:
+  - qspi_tests: test
+top:
+  - qspi_top: top
+outfeed: ../../../../SIM/qspi_new
+TB_CONFIG: "+define+UVM_NO_DPI+QSPI_SDR_FLASH"
