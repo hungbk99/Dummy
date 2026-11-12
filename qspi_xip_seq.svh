@@ -45,9 +45,9 @@ task qspi_xip_seq_c::body();
   end
   enter_xip();
   xip_check(4);
-  before_frames=vif.frames;
+  before_frames=monitor_vif.frames;
   xip_check(4);
-  verify(vif.frames==before_frames,"cache hit creates no serial frame");
+  verify(monitor_vif.frames==before_frames,"cache hit creates no serial frame");
   ahb_access('h00200000,data,error);
   verify(error,"out-of-range AHB address returns ERROR");
   ahb_access(flash_base_addr,data,error,1);

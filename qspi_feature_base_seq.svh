@@ -3,7 +3,9 @@
 
 // Common operations and reporting only. Each feature has its own factory class/body.
 class qspi_feature_base_seq_c extends qspi_transfer_base_seq_c;
-  virtual qspi_test_if vif;
+  virtual qspi_monitor_if monitor_vif;
+  virtual qspi_irq_if irq_vif;
+  virtual qspi_dma_if dma_vif;
   extern task ahb_access(bit [31:0] address, output bit [31:0] data,
                          output bit error, input bit write_access=0);
 
@@ -62,8 +64,12 @@ endfunction : new
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 task qspi_feature_base_seq_c::pre_body();
   super.pre_body();
-  if (!uvm_config_db#(virtual qspi_test_if)::get(null, "", "qspi_test_vif", vif))
-  `uvm_fatal("QSPI_SETUP", "Missing qspi_test_vif")
+  if (!uvm_config_db#(virtual qspi_monitor_if)::get(null, "", "qspi_monitor_vif", monitor_vif))
+  `uvm_fatal("QSPI_SETUP", "Missing QSPI serial monitor interface")
+  if (!uvm_config_db#(virtual qspi_irq_if)::get(null, "", "qspi_irq_vif", irq_vif))
+    `uvm_fatal("QSPI_SETUP", "Missing IRQ monitor interface")
+  if (!uvm_config_db#(virtual qspi_dma_if)::get(null, "", "qspi_dma_vif", dma_vif))
+    `uvm_fatal("QSPI_SETUP", "Missing DMA interface")
 `ifdef VERILATOR
   // XIP has a directed matrix that does not need an external SMT solver.
   if (case_name == "xip") begin
@@ -168,8 +174,8 @@ task qspi_feature_base_seq_c::abort_controller();
     if(!cr[1] && !sr[6]) begin
       verify(sr[1],"abort sets TCF");
       verify(sr[21:16]==0 && sr[13:8]==0,"abort flushes RX/TX FIFO");
-      vif.wait_core();
-      verify(!vif.dma_tx_req && !vif.dma_rx_req,"abort suppresses DMA requests");
+      irq_vif.wait_core();
+      verify(!dma_vif.tx_req && !dma_vif.rx_req,"abort suppresses DMA requests");
       return;
     end
   end
@@ -263,7 +269,7 @@ task qspi_feature_base_seq_c::enter_xip(int lanes=1,bit ddr=0);
   ccr=read_ccr(lanes,ddr);
   ccr[27:26]=3;
   qspi_write_reg("QSPI_CCR",ccr);
-  vif.wait_core(8);
+  irq_vif.wait_core(8);
 endtask : enter_xip
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
