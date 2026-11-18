@@ -77,6 +77,8 @@ def build_command(config, arun):
         raise ValueError('Cannot obtain one Verilator build command from arun --dry-run')
     cwd, text = matches[0]
     command = shlex.split(text)
+    # Keep the UVM generated C++ units small enough for memory-limited hosts.
+    command += ['--output-groups', '64']
     binary = Path(command[command.index('--Mdir') + 1]) / 'Vtop'
     return command, Path(cwd), binary
 

@@ -13,3 +13,5 @@ Common inputs: flash offset 0x10000, expected-data seed 0x13572468, two repeats,
 XIP uses lengths 512 (low), 204 (high, ending at 0x30ffffff), and 648 (middle at 0x30073034), in all three lane modes. The middle/high starts exercise page splits. Register pattern is 0xa5a55a5a; reserved offset 0x44; polling timeout 64; clock observation 32; mixed transfer 16 bytes; IRQ observation 8; DMA clear pulse 4; timeout settling 8; SIOO continuation 256 bytes. The existing legacy smoke retains its own deterministic setup.
 
 Payload oracles, protocol/error checks, and recovery checks remain enabled. Known DDR/abort findings are not waived. PASS requires completed simulation, zero failed checks, and zero UVM errors/fatals. Fixed scenarios do not replace randomized coverage.
+
+All scenarios use the single `qspi_base_test_c` class. The runner selects the feature through `-seqc=` / `+vseq_c`; feature sequences remain separate.

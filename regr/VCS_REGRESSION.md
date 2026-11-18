@@ -18,3 +18,5 @@ python3 regr/run_vcs_regression.py --arun /path/to/arun.py --cases xip,polling -
 Use `--normal-config` and `--timeout-config` for the configuration files in your checkout, and `--out` for launcher logs/results. Configurations must point to that host's UVM/RTL paths. A run includes arun's compile-and-simulate flow; the default wall timeout is 1200 seconds, adjustable with `--timeout`. Each case/seed has a unique runstring and launcher log. The script requires process success, UVM summary with zero errors/fatals, and a successful test comparison summary. Missing completion is a failure. Results are saved incrementally to `results.json`.
 
 Only command generation was validated locally; VCS simulation is left to the user. Existing DDR and abort checks remain enabled, so results are not guaranteed to pass. This list must stay outside `vectors/`, which is owned by the Verilator YAML runner.
+
+All scenarios use the single `qspi_base_test_c` class. The runner selects the feature through `-seqc=` / `+vseq_c`; feature sequences remain separate.

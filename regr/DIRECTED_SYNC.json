@@ -45,7 +45,6 @@
     "env/qspi_env.svh",
     "env/qspi_env_pkg.sv",
     "env/qspi_coverage.svh",
-    "integration/qspi_axi_adapter_pkg.sv",
     "regr/run_regression.py",
     "regr/run_yaml_regression.py",
     "regr/solver_setup.py",

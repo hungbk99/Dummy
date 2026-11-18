@@ -51,8 +51,7 @@ def run_case(binary, name, seed, folder, timeout, plusargs, solver_error=None):
 
     command = [str(binary), f"+verilator+coverage+file+{coverage.resolve()}",
                f"+UVM_TESTNAME={tests[name]}", f"+verilator+seed+{seed}", *plusargs]
-    if name == "indirect_smoke":
-        command.append(f"+vseq_c={sequences[name]}")
+    command.append(f"+vseq_c={sequences[name]}")
     result["command"] = command
     start = time.monotonic()
     with log_path.open("w") as log_file:
