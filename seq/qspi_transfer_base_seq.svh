@@ -2,28 +2,29 @@
 `define QSPI_TRANSFER_BASE_SEQ_SVH
 
 // Shared bus/flash operations; no concrete test body or test selector.
+// QSPI transfer base seq.
 class qspi_transfer_base_seq_c extends qspi_base_seq_c;
   extern function new(string name = "qspi_transfer_base_seq_c");
 
-  extern virtual task qspi_read_reg(
+  extern virtual task qspi_read_register(
       input  string     reg_name,
       output bit [31:0] data
   );
 
-  extern virtual task qspi_write_reg(
+  extern virtual task qspi_write_register(
       input string     reg_name,
       input bit [31:0] data
   );
 
-  extern virtual task qspi_wait_idle();
+  extern virtual task qspi_wait_controller_idle();
 
-  extern virtual task qspi_wait_complete();
+  extern virtual task qspi_wait_transfer_complete();
 
-  extern virtual task qspi_flash_read_vcr(output bit [7:0] value);
+  extern virtual task qspi_read_flash_configuration(output bit [7:0] value);
 
-  extern virtual task qspi_flash_wait_ready();
+  extern virtual task qspi_wait_flash_ready();
 
-  extern virtual task qspi_flash_write_config(
+  extern virtual task qspi_write_flash_configuration(
       input bit [7:0] opcode,
       input bit [7:0] value
   );
@@ -47,43 +48,47 @@ class qspi_transfer_base_seq_c extends qspi_base_seq_c;
   );
 endclass : qspi_transfer_base_seq_c
 
+// Construct this object and initialize its inherited UVM state.
 function qspi_transfer_base_seq_c::new(string name = "qspi_transfer_base_seq_c");
     super.new(name);
   endfunction : new
 
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-task qspi_transfer_base_seq_c::qspi_read_reg(
+// Read register.
+task qspi_transfer_base_seq_c::qspi_read_register(
     input  string     reg_name,
     output bit [31:0] data
 );
     bit [31:0] addr;
     bit        err_rsp;
 
-    if (!qspi_get_reg_addr(reg_name, addr))
+    if (!qspi_lookup_register_address(reg_name, addr))
         `uvm_error("QSPI", $sformatf("Unknown register: %s", reg_name))
 
-    reg_read32(addr, data, err_rsp);
+    qspi_bus_read32(addr, data, err_rsp);
 
     if (err_rsp)
         `uvm_error("QSPI", $sformatf("Read error: %s", reg_name))
-endtask : qspi_read_reg
+endtask : qspi_read_register
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-task qspi_transfer_base_seq_c::qspi_write_reg(
+// Write register.
+task qspi_transfer_base_seq_c::qspi_write_register(
     input string     reg_name,
     input bit [31:0] data
 );
     bit [31:0] addr;
 
-    if (!qspi_get_reg_addr(reg_name, addr))
+    if (!qspi_lookup_register_address(reg_name, addr))
         `uvm_error("QSPI", $sformatf("Unknown register: %s", reg_name))
 
-    reg_write32(addr, data);
-endtask : qspi_write_reg
+    qspi_bus_write32(addr, data);
+endtask : qspi_write_register
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-task qspi_transfer_base_seq_c::qspi_wait_idle();
+// Wait controller idle.
+task qspi_transfer_base_seq_c::qspi_wait_controller_idle();
 
     bit [31:0] sr;
     bit        idle;
@@ -91,7 +96,7 @@ task qspi_transfer_base_seq_c::qspi_wait_idle();
     idle = 0;
 
     for (int i = 0; i < 1000; i++) begin
-        qspi_read_reg("QSPI_SR", sr);
+        qspi_read_register("QSPI_SR", sr);
 
         if (sr[6] == 1'b0) begin
             idle = 1;
@@ -102,10 +107,11 @@ task qspi_transfer_base_seq_c::qspi_wait_idle();
     if (!idle)
         `uvm_error("QSPI", "BUSY timeout")
 
-endtask : qspi_wait_idle
+endtask : qspi_wait_controller_idle
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-task qspi_transfer_base_seq_c::qspi_wait_complete();
+// Wait transfer complete.
+task qspi_transfer_base_seq_c::qspi_wait_transfer_complete();
 
     bit [31:0] sr;
     bit        complete;
@@ -114,7 +120,7 @@ task qspi_transfer_base_seq_c::qspi_wait_complete();
 
     for (int i = 0; i < 100000; i++) begin
 
-        qspi_read_reg("QSPI_SR", sr);
+        qspi_read_register("QSPI_SR", sr);
 
         if (sr[0]) begin
             `uvm_error("QSPI", "QSPI transfer error: SR.TEF = 1")
@@ -131,12 +137,13 @@ task qspi_transfer_base_seq_c::qspi_wait_complete();
         `uvm_error("QSPI", "Transfer complete timeout")
 
     // Clear TCF: FCR.CTCF = bit 1
-    qspi_write_reg("QSPI_FCR", 32'h0000_0002);
+    qspi_write_register("QSPI_FCR", 32'h0000_0002);
 
-endtask : qspi_wait_complete
+endtask : qspi_wait_transfer_complete
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-task qspi_transfer_base_seq_c::qspi_flash_read_vcr(output bit [7:0] value);
+// Read flash configuration.
+task qspi_transfer_base_seq_c::qspi_read_flash_configuration(output bit [7:0] value);
     bit [31:0] sr;
     bit [31:0] dr_addr;
     bit [31:0] dr_data;
@@ -145,15 +152,15 @@ task qspi_transfer_base_seq_c::qspi_flash_read_vcr(output bit [7:0] value);
 
     value = '0;
     rx_ready = 0;
-    qspi_wait_idle();
-    qspi_get_reg_addr("QSPI_DR", dr_addr);
+    qspi_wait_controller_idle();
+    qspi_lookup_register_address("QSPI_DR", dr_addr);
 
     // One-byte indirect read, instruction and data on single lane, no address.
-    qspi_write_reg("QSPI_DLR", 32'd0);
-    qspi_write_reg("QSPI_CCR", 32'h0500_0185);
+    qspi_write_register("QSPI_DLR", 32'd0);
+    qspi_write_register("QSPI_CCR", 32'h0500_0185);
 
     for (int poll = 0; poll < 100000; poll++) begin
-        qspi_read_reg("QSPI_SR", sr);
+        qspi_read_register("QSPI_SR", sr);
         if (sr[0])
             `uvm_error("QSPI_FLASH_CFG", "TEF while reading N25Q VCR")
         if (sr[21:16] != 0) begin
@@ -165,45 +172,57 @@ task qspi_transfer_base_seq_c::qspi_flash_read_vcr(output bit [7:0] value);
     if (!rx_ready) begin
         `uvm_error("QSPI_FLASH_CFG", "Timed out waiting for N25Q VCR data")
     end else begin
-        reg_read32(dr_addr, dr_data, err_rsp);
+        qspi_bus_read32(dr_addr, dr_data, err_rsp);
         if (err_rsp)
             `uvm_error("QSPI_FLASH_CFG", "QSPI_DR read error while reading N25Q VCR")
         else
             value = dr_data[7:0];
     end
 
-    qspi_wait_complete();
-endtask : qspi_flash_read_vcr
+    qspi_wait_transfer_complete();
+endtask : qspi_read_flash_configuration
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-task qspi_transfer_base_seq_c::qspi_flash_wait_ready();
+// Poll flash WIP until ready; stop on transfer error or the elapsed-time deadline.
+task qspi_transfer_base_seq_c::qspi_wait_flash_ready();
     bit [31:0] sr;
     bit [31:0] flash_status;
     bit [31:0] dr_addr;
     bit        err_rsp;
     bit        ready;
+    time       deadline;
 
     ready = 0;
-    qspi_get_reg_addr("QSPI_DR", dr_addr);
+    // Use elapsed simulation time: a poll-count budget shrinks at faster clocks.
+    deadline = $time + 10ms;
+    qspi_lookup_register_address("QSPI_DR", dr_addr);
 
-    for (int poll = 0; poll < 1000; poll++) begin
-        qspi_wait_idle();
+    while ($time < deadline) begin
+        qspi_wait_controller_idle();
 
         // One-byte indirect read, instruction and data on single lane.
-        qspi_write_reg("QSPI_DLR", 32'd0);
-        qspi_write_reg("QSPI_CCR", 32'h0500_0105);
+        qspi_write_register("QSPI_DLR", 32'd0);
+        qspi_write_register("QSPI_CCR", 32'h0500_0105);
 
         do begin
-            qspi_read_reg("QSPI_SR", sr);
-            if (sr[0])
-                `uvm_error("QSPI_FLASH_STATUS", "TEF while reading flash status")
+            qspi_read_register("QSPI_SR", sr);
+            if (sr[0]) begin
+                `uvm_error("QSPI_FLASH_STATUS", $sformatf("TEF while reading flash status: SR=%08h",sr))
+                return;
+            end
+            if ($time >= deadline) begin
+                `uvm_error("QSPI_FLASH_STATUS", $sformatf("10 ms timeout waiting for flash status RX data: SR=%08h",sr))
+                return;
+            end
         end while (sr[21:16] == 0);
 
-        reg_read32(dr_addr, flash_status, err_rsp);
-        if (err_rsp)
+        qspi_bus_read32(dr_addr, flash_status, err_rsp);
+        if (err_rsp) begin
             `uvm_error("QSPI_FLASH_STATUS", "QSPI_DR read error while polling WIP")
+            return;
+        end
 
-        qspi_wait_complete();
+        qspi_wait_transfer_complete();
 
         if (flash_status[0] == 1'b0) begin
             ready = 1;
@@ -212,11 +231,12 @@ task qspi_transfer_base_seq_c::qspi_flash_wait_ready();
     end
 
     if (!ready)
-        `uvm_error("QSPI_FLASH_STATUS", "Timed out waiting for N25Q WIP to clear")
-endtask : qspi_flash_wait_ready
+        `uvm_error("QSPI_FLASH_STATUS", "10 ms timeout waiting for N25Q WIP to clear")
+endtask : qspi_wait_flash_ready
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-task qspi_transfer_base_seq_c::qspi_flash_write_config(
+// Write flash configuration.
+task qspi_transfer_base_seq_c::qspi_write_flash_configuration(
     input bit [7:0] opcode,
     input bit [7:0] value
 );
@@ -229,20 +249,21 @@ task qspi_transfer_base_seq_c::qspi_flash_write_config(
     end
 
     // WREN (06h), instruction phase only, single lane.
-    qspi_wait_idle();
-    qspi_write_reg("QSPI_CCR", 32'h0000_0106);
-    qspi_wait_complete();
+    qspi_wait_controller_idle();
+    qspi_write_register("QSPI_CCR", 32'h0000_0106);
+    qspi_wait_transfer_complete();
 
     // Write one configuration byte, instruction and data on single lane.
-    qspi_wait_idle();
-    qspi_write_reg("QSPI_DLR", 32'd0);  // DLR is byte count minus one
+    qspi_wait_controller_idle();
+    qspi_write_register("QSPI_DLR", 32'd0);  // DLR is byte count minus one
     ccr = 32'h0100_0100 | {24'd0, opcode}; // DMODE=single, IMODE=single
-    qspi_write_reg("QSPI_CCR", ccr);
-    qspi_write_reg("QSPI_DR", {24'd0, value});
-    qspi_wait_complete();
-endtask : qspi_flash_write_config
+    qspi_write_register("QSPI_CCR", ccr);
+    qspi_write_register("QSPI_DR", {24'd0, value});
+    qspi_wait_transfer_complete();
+endtask : qspi_write_flash_configuration
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// Indirect write.
 task qspi_transfer_base_seq_c::qspi_indirect_write(
     input bit [31:0] flash_addr,
     input bit [31:0] byte_count,
@@ -260,7 +281,7 @@ task qspi_transfer_base_seq_c::qspi_indirect_write(
     // Step 1: Wait for BUSY = 0
     // --------------------------------------------------------
 
-    qspi_wait_idle();
+    qspi_wait_controller_idle();
 
     if (byte_count == 0)
         `uvm_error("QSPI", "Invalid transfer length: zero bytes")
@@ -275,20 +296,20 @@ task qspi_transfer_base_seq_c::qspi_indirect_write(
     // Step 2: Program DLR, ABR and CCR
     // --------------------------------------------------------
 
-    qspi_write_reg("QSPI_DLR", byte_count - 1);
+    qspi_write_register("QSPI_DLR", byte_count - 1);
 
     if (use_abr)
-        qspi_write_reg("QSPI_ABR", abr_data);
+        qspi_write_register("QSPI_ABR", abr_data);
 
     // FMODE = 00: Indirect write
     ccr = ccr_cfg;
     ccr[27:26] = 2'b00;
 
-    qspi_write_reg("QSPI_CCR", ccr);
+    qspi_write_register("QSPI_CCR", ccr);
 
     // Write AR when address phase is enabled.
     if (ccr[11:10] != 2'b00)
-        qspi_write_reg("QSPI_AR", flash_addr);
+        qspi_write_register("QSPI_AR", flash_addr);
 
 
     // --------------------------------------------------------
@@ -299,7 +320,7 @@ task qspi_transfer_base_seq_c::qspi_indirect_write(
 
         // Wait until TXFLEVEL < FIFO depth (32 words).
         do begin
-            qspi_read_reg("QSPI_SR", sr);
+            qspi_read_register("QSPI_SR", sr);
 
             if (sr[0])
                 `uvm_error("QSPI", "TX transfer error")
@@ -308,7 +329,7 @@ task qspi_transfer_base_seq_c::qspi_indirect_write(
 
         // Write one word to DR.
         // First DR write starts the transfer when applicable.
-        qspi_write_reg("QSPI_DR", tx_words[i]);
+        qspi_write_register("QSPI_DR", tx_words[i]);
 
     end
 
@@ -317,7 +338,7 @@ task qspi_transfer_base_seq_c::qspi_indirect_write(
     // Step 4: Wait for TCF and clear it
     // --------------------------------------------------------
 
-    qspi_wait_complete();
+    qspi_wait_transfer_complete();
 
     `uvm_info("QSPI",
         $sformatf("Indirect WRITE completed: ADDR=0x%08h BYTES=%0d",
@@ -327,6 +348,7 @@ task qspi_transfer_base_seq_c::qspi_indirect_write(
 endtask : qspi_indirect_write
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// Indirect read.
 task qspi_transfer_base_seq_c::qspi_indirect_read(
     input  bit [31:0] flash_addr,
     input  bit [31:0] byte_count,
@@ -347,7 +369,7 @@ task qspi_transfer_base_seq_c::qspi_indirect_read(
     // Step 1: Wait for BUSY = 0
     // --------------------------------------------------------
 
-    qspi_wait_idle();
+    qspi_wait_controller_idle();
 
     if (byte_count == 0)
         `uvm_error("QSPI", "Invalid transfer length: zero bytes")
@@ -362,16 +384,16 @@ task qspi_transfer_base_seq_c::qspi_indirect_read(
     // Step 2: Program DLR, ABR and CCR
     // --------------------------------------------------------
 
-    qspi_write_reg("QSPI_DLR", byte_count - 1);
+    qspi_write_register("QSPI_DLR", byte_count - 1);
 
     if (use_abr)
-        qspi_write_reg("QSPI_ABR", abr_data);
+        qspi_write_register("QSPI_ABR", abr_data);
 
     // FMODE = 01: Indirect read
     ccr = ccr_cfg;
     ccr[27:26] = 2'b01;
 
-    qspi_write_reg("QSPI_CCR", ccr);
+    qspi_write_register("QSPI_CCR", ccr);
 
 
     // --------------------------------------------------------
@@ -379,27 +401,27 @@ task qspi_transfer_base_seq_c::qspi_indirect_read(
     // --------------------------------------------------------
 
     if (ccr[11:10] != 2'b00)
-        qspi_write_reg("QSPI_AR", flash_addr);
+        qspi_write_register("QSPI_AR", flash_addr);
 
 
     // --------------------------------------------------------
     // Step 4: Read DR while RX FIFO contains data
     // --------------------------------------------------------
 
-    qspi_get_reg_addr("QSPI_DR", addr);
+    qspi_lookup_register_address("QSPI_DR", addr);
 
     for (int i = 0; i < word_count; i++) begin
 
         // Wait for RX FIFO data.
         do begin
-            qspi_read_reg("QSPI_SR", sr);
+            qspi_read_register("QSPI_SR", sr);
 
             if (sr[0])
                 `uvm_error("QSPI", "RX transfer error")
 
         end while (sr[21:16] == 0);
 
-        reg_read32(addr, rx_words[i], err_rsp);
+        qspi_bus_read32(addr, rx_words[i], err_rsp);
 
         if (err_rsp)
             `uvm_error("QSPI", "QSPI_DR read error")
@@ -415,7 +437,7 @@ task qspi_transfer_base_seq_c::qspi_indirect_read(
     // Step 5: Wait for TCF and clear it
     // --------------------------------------------------------
 
-    qspi_wait_complete();
+    qspi_wait_transfer_complete();
 
     `uvm_info("QSPI",
         $sformatf("Indirect READ completed: ADDR=0x%08h BYTES=%0d",

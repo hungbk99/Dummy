@@ -1,6 +1,7 @@
 `ifndef QSPI_INDIRECT_SEQ_C_SVH
 `define QSPI_INDIRECT_SEQ_C_SVH
 
+// QSPI indirect seq.
 class qspi_indirect_seq_c extends qspi_transfer_base_seq_c;
   `uvm_object_utils(qspi_indirect_seq_c)
 
@@ -44,17 +45,18 @@ class qspi_indirect_seq_c extends qspi_transfer_base_seq_c;
   extern function new(string name = "qspi_indirect_seq_c");
 
 
-  extern virtual function bit [31:0] pack_ccr();
-  extern virtual task qspi_init();
-  extern virtual task configure_frame_format();
+  extern virtual function bit [31:0] qspi_pack_command_configuration();
+  extern virtual task qspi_initialize_indirect_controller();
+  extern virtual task qspi_configure_frame_format();
 
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+  // Run this scenario: indirect seq. Check failures are reported through UVM.
   virtual task body();
     bit [31:0] tx_data[];
     bit [31:0] rx_data[];
     bit [31:0] write_ccr;
-    bit [31:0] read_ccr;
+    bit [31:0] qspi_build_read_command;
     bit [7:0]  write_opcode;
     bit [7:0]  read_opcode;
     bit [31:0] flash_addr;
@@ -80,25 +82,25 @@ class qspi_indirect_seq_c extends qspi_transfer_base_seq_c;
 `else
     this.randomize();
 `endif
-    qspi_init();
+    qspi_initialize_indirect_controller();
 
-`ifdef QSPI_MICRON_MODEL
-    // Configure the real flash and the controller consistently: four dummy clocks.
-    qspi_flash_write_config(8'h81, 8'h4b);
-`endif
+    if ($test$plusargs("w25q_csn")) begin
+      // Configure the real flash and the controller consistently: four dummy clocks.
+      qspi_write_flash_configuration(8'h81, 8'h4b);
+    end
 
     // Read the flash's Volatile Configuration Register. The N25Q model uses
     // VCR[7:4] for fast-read dummy cycles; 0 and F select its default of 8.
-    qspi_flash_read_vcr(vcr_value);
+    qspi_read_flash_configuration(vcr_value);
     if ((vcr_value[7:4] == 4'h0) || (vcr_value[7:4] == 4'hF))
       flash_dummy_cycles = 5'd8;
     else
       flash_dummy_cycles = {1'b0, vcr_value[7:4]};
 
-`ifdef QSPI_MICRON_MODEL
-    if (vcr_value[7:4] != 4'd4)
-      `uvm_fatal("QSPI_FLASH_CFG", $sformatf("Expected VCR dummy cycles=4, read VCR=0x%02h", vcr_value))
-`endif
+    if ($test$plusargs("w25q_csn")) begin
+      if (vcr_value[7:4] != 4'd4)
+        `uvm_fatal("QSPI_FLASH_CFG", $sformatf("Expected VCR dummy cycles=4, read VCR=0x%02h", vcr_value))
+    end
 
     `uvm_info("QSPI_FLASH_CFG",
       $sformatf("N25Q VCR=0x%02h; model fast-read dummy cycles=%0d (dual/quad CCR will use this value)",
@@ -122,7 +124,7 @@ class qspi_indirect_seq_c extends qspi_transfer_base_seq_c;
           write_opcode = 8'h02; // Page Program
           read_opcode = 8'h03;  // Read
           write_ccr = 32'h0100_2502;
-          read_ccr = 32'h0100_2503;
+          qspi_build_read_command = 32'h0100_2503;
         end
         1: begin
           mode_name = "dual";
@@ -130,8 +132,8 @@ class qspi_indirect_seq_c extends qspi_transfer_base_seq_c;
           write_opcode = 8'hA2; // Dual Program
           read_opcode = 8'h3B;  // Dual Output Fast Read
           write_ccr = 32'h0200_25A2;
-          read_ccr = 32'h0200_253B; // DMODE=dual, DCYC filled from VCR below
-          read_ccr[22:18] = flash_dummy_cycles;
+          qspi_build_read_command = 32'h0200_253B; // DMODE=dual, DCYC filled from VCR below
+          qspi_build_read_command[22:18] = flash_dummy_cycles;
         end
         default: begin
           mode_name = "quad";
@@ -139,25 +141,25 @@ class qspi_indirect_seq_c extends qspi_transfer_base_seq_c;
           write_opcode = 8'h32; // Quad Program
           read_opcode = 8'h6B;  // Quad Output Fast Read
           write_ccr = 32'h0300_2532;
-          read_ccr = 32'h0300_256B; // DMODE=quad, DCYC filled from VCR below
-          read_ccr[22:18] = flash_dummy_cycles;
-`ifdef QSPI_MICRON_MODEL
-          // N25Q256A13E vendor model fixes 6Bh at eight dummy clocks.
-          // Its EBh quad-I/O path is tested with the programmable four below.
-          read_ccr[22:18] = 5'd8;
-`endif
+          qspi_build_read_command = 32'h0300_256B; // DMODE=quad, DCYC filled from VCR below
+          qspi_build_read_command[22:18] = flash_dummy_cycles;
+          if ($test$plusargs("w25q_csn")) begin
+            // N25Q256A13E vendor model fixes 6Bh at eight dummy clocks.
+            // Its EBh quad-I/O path is tested with the programmable four below.
+            qspi_build_read_command[22:18] = 5'd8;
+          end
         end
       endcase
 
       `uvm_info("QSPI_MODE_TEST",
         $sformatf("Starting %s-lane write/read at 0x%08h (write opcode=0x%02h, read opcode=0x%02h, read CCR=0x%08h, DCYC=%0d)",
                   mode_name, flash_addr, write_opcode, read_opcode,
-                  read_ccr, read_ccr[22:18]), UVM_LOW)
+                  qspi_build_read_command, qspi_build_read_command[22:18]), UVM_LOW)
 
       // Page-program operations require WREN. This is instruction-only.
-      qspi_wait_idle();
-      qspi_write_reg("QSPI_CCR", 32'h0000_0106);
-      qspi_wait_complete();
+      qspi_wait_controller_idle();
+      qspi_write_register("QSPI_CCR", 32'h0000_0106);
+      qspi_wait_transfer_complete();
 
       qspi_indirect_write(
           flash_addr,
@@ -170,7 +172,7 @@ class qspi_indirect_seq_c extends qspi_transfer_base_seq_c;
 
       // Controller TCF means the serial frame ended. The flash can still be
       // internally busy programming the page, so poll WIP in status register.
-      qspi_flash_wait_ready();
+      qspi_wait_flash_ready();
 
       // For dual/quad cases, first read the programmed address with the known
       // working single-lane read command. This separates a write-side failure
@@ -199,7 +201,7 @@ class qspi_indirect_seq_c extends qspi_transfer_base_seq_c;
       qspi_indirect_read(
           flash_addr,
           32'd16,
-          read_ccr,
+          qspi_build_read_command,
           1'b0,
           32'h0000_0000,
           rx_data
@@ -214,12 +216,11 @@ class qspi_indirect_seq_c extends qspi_transfer_base_seq_c;
                       mode_name, i, tx_data[i], rx_data[i]))
         end
       end
-`ifdef QSPI_MICRON_MODEL
-      if (mode == 2) begin
-        read_ccr = 32'h0310_2DEB; // EBh: quad address/data, 24-bit address, DCYC=4.
+      if ($test$plusargs("w25q_csn") && (mode == 2)) begin
+        qspi_build_read_command = 32'h0310_2DEB; // EBh: quad address/data, 24-bit address, DCYC=4.
         `uvm_info("QSPI_MODE_TEST",
           "Starting EBh quad-I/O readback with four dummy clocks", UVM_LOW)
-        qspi_indirect_read(flash_addr, 32'd16, read_ccr,
+        qspi_indirect_read(flash_addr, 32'd16, qspi_build_read_command,
                            1'b0, 32'd0, rx_data);
         foreach (tx_data[i]) begin
           compared_words++;
@@ -231,7 +232,6 @@ class qspi_indirect_seq_c extends qspi_transfer_base_seq_c;
           end
         end
       end
-`endif
     end
     `uvm_info("QSPI_COMPARE_SUMMARY",
       $sformatf("Compared %0d words across single/dual/quad reads and single-lane cross-checks; mismatches=%0d",
@@ -240,12 +240,14 @@ class qspi_indirect_seq_c extends qspi_transfer_base_seq_c;
 
 endclass: qspi_indirect_seq_c
 
+// Construct this object and initialize its inherited UVM state.
 function qspi_indirect_seq_c::new(string name = "qspi_indirect_seq_c");
     super.new(name);
   endfunction : new
 
 
-function bit [31:0] qspi_indirect_seq_c::pack_ccr();
+// Pack command configuration.
+function bit [31:0] qspi_indirect_seq_c::qspi_pack_command_configuration();
 
   return {
     ddrm,           // [31]
@@ -266,7 +268,8 @@ function bit [31:0] qspi_indirect_seq_c::pack_ccr();
 endfunction
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-task qspi_indirect_seq_c::qspi_init();
+// Initialize indirect controller.
+task qspi_indirect_seq_c::qspi_initialize_indirect_controller();
 
   bit [31:0] addr;
   bit [31:0] tmp_data;
@@ -319,13 +322,13 @@ task qspi_indirect_seq_c::qspi_init();
   // STEP 1: Wait until SR.BUSY = 0
   // =========================================================
 
-  qspi_get_reg_addr("QSPI_SR", addr);
+  qspi_lookup_register_address("QSPI_SR", addr);
 
   busy = 1'b1;
 
   for (int i = 0; i < 1000; i++) begin
 
-    reg_read32(addr, tmp_data, err_rsp);
+    qspi_bus_read32(addr, tmp_data, err_rsp);
 
     if (err_rsp)
       `uvm_error("QSPI_INIT", "QSPI_SR read error")
@@ -346,8 +349,8 @@ task qspi_indirect_seq_c::qspi_init();
   // =========================================================
 
   // V2 DCR: FSIZE, CKMODE; CS idle timing is in DLY.
-  qspi_get_reg_addr("QSPI_DCR", addr);
-  reg_read32(addr, tmp_data, err_rsp);
+  qspi_lookup_register_address("QSPI_DCR", addr);
+  qspi_bus_read32(addr, tmp_data, err_rsp);
 
   if (err_rsp)
     `uvm_error("QSPI_INIT", "QSPI_DCR read error")
@@ -356,15 +359,15 @@ task qspi_indirect_seq_c::qspi_init();
   tmp_data[10:8]  = 3'd0; // Reserved in V2.0
   tmp_data[0]     = cfg_ckmode;
 
-  reg_write32(addr, tmp_data);
+  qspi_bus_write32(addr, tmp_data);
 
 
   // V2 DLY: CSIDLE[23:16], CSH[15:8], CSS[7:0].
-  qspi_write_reg("QSPI_DLY", {8'd0, cfg_csidle, 8'd0, 8'd0});
+  qspi_write_register("QSPI_DLY", {8'd0, cfg_csidle, 8'd0, 8'd0});
 
   // CR: PRESCALER, TXFIFOTH, RXFIFOTH
-  qspi_get_reg_addr("QSPI_CR", addr);
-  reg_read32(addr, tmp_data, err_rsp);
+  qspi_lookup_register_address("QSPI_CR", addr);
+  qspi_bus_read32(addr, tmp_data, err_rsp);
 
   if (err_rsp)
     `uvm_error("QSPI_INIT", "QSPI_CR read error")
@@ -374,18 +377,18 @@ task qspi_indirect_seq_c::qspi_init();
   tmp_data[12:8]  = cfg_txfifoth;
   tmp_data[7:3]   = cfg_rxfifoth;
 
-  reg_write32(addr, tmp_data);
+  qspi_bus_write32(addr, tmp_data);
 
 
   // =========================================================
   // STEP 3: Clear stale flags
   // =========================================================
 
-  qspi_get_reg_addr("QSPI_FCR", addr);
-  reg_write32(addr, 32'h0000_003F);
+  qspi_lookup_register_address("QSPI_FCR", addr);
+  qspi_bus_write32(addr, 32'h0000_003F);
 
-  qspi_get_reg_addr("QSPI_DMAFCR", addr);
-  reg_write32(addr, 32'h0000_000C);
+  qspi_lookup_register_address("QSPI_DMAFCR", addr);
+  qspi_bus_write32(addr, 32'h0000_000C);
 
 
   // =========================================================
@@ -393,20 +396,20 @@ task qspi_indirect_seq_c::qspi_init();
   // =========================================================
 
   // CR interrupt enables
-  qspi_get_reg_addr("QSPI_CR", addr);
-  reg_read32(addr, tmp_data, err_rsp);
+  qspi_lookup_register_address("QSPI_CR", addr);
+  qspi_bus_read32(addr, tmp_data, err_rsp);
 
   if (err_rsp)
     `uvm_error("QSPI_INIT", "QSPI_CR read error")
 
   tmp_data[21:16] = 6'b000011;
 
-  reg_write32(addr, tmp_data);
+  qspi_bus_write32(addr, tmp_data);
 
 
   // DMACR interrupt enables
-  qspi_get_reg_addr("QSPI_DMACR", addr);
-  reg_read32(addr, tmp_data, err_rsp);
+  qspi_lookup_register_address("QSPI_DMACR", addr);
+  qspi_bus_read32(addr, tmp_data, err_rsp);
 
   if (err_rsp)
     `uvm_error("QSPI_INIT", "QSPI_DMACR read error")
@@ -415,22 +418,22 @@ task qspi_indirect_seq_c::qspi_init();
   // TXOVRIE=1, RXUDRIE=1
   tmp_data[3:0] = 4'b1100;
 
-  reg_write32(addr, tmp_data);
+  qspi_bus_write32(addr, tmp_data);
 
 
   // =========================================================
   // STEP 5: Enable QSPI
   // =========================================================
 
-  qspi_get_reg_addr("QSPI_CR", addr);
-  reg_read32(addr, tmp_data, err_rsp);
+  qspi_lookup_register_address("QSPI_CR", addr);
+  qspi_bus_read32(addr, tmp_data, err_rsp);
 
   if (err_rsp)
     `uvm_error("QSPI_INIT", "QSPI_CR read error")
 
   tmp_data[0] = 1'b1;
 
-  reg_write32(addr, tmp_data);
+  qspi_bus_write32(addr, tmp_data);
 
 
   // =========================================================
@@ -450,8 +453,8 @@ task qspi_indirect_seq_c::qspi_init();
   // DCR configuration
   // ---------------------------------------------------------
 
-  qspi_get_reg_addr("QSPI_DCR", addr);
-  reg_read32(addr, dcr_data, err_rsp);
+  qspi_lookup_register_address("QSPI_DCR", addr);
+  qspi_bus_read32(addr, dcr_data, err_rsp);
 
   if (err_rsp)
     `uvm_error("QSPI_INIT", "DCR debug read error")
@@ -470,8 +473,8 @@ task qspi_indirect_seq_c::qspi_init();
   // CR configuration
   // ---------------------------------------------------------
 
-  qspi_get_reg_addr("QSPI_CR", addr);
-  reg_read32(addr, cr_data, err_rsp);
+  qspi_lookup_register_address("QSPI_CR", addr);
+  qspi_bus_read32(addr, cr_data, err_rsp);
 
   if (err_rsp)
     `uvm_error("QSPI_INIT", "CR debug read error")
@@ -506,8 +509,8 @@ task qspi_indirect_seq_c::qspi_init();
   // DMACR configuration
   // ---------------------------------------------------------
 
-  qspi_get_reg_addr("QSPI_DMACR", addr);
-  reg_read32(addr, dmacr_data, err_rsp);
+  qspi_lookup_register_address("QSPI_DMACR", addr);
+  qspi_bus_read32(addr, dmacr_data, err_rsp);
 
   if (err_rsp)
     `uvm_error("QSPI_INIT", "DMACR debug read error")
@@ -529,8 +532,8 @@ task qspi_indirect_seq_c::qspi_init();
   // SR status
   // ---------------------------------------------------------
 
-  qspi_get_reg_addr("QSPI_SR", addr);
-  reg_read32(addr, sr_data, err_rsp);
+  qspi_lookup_register_address("QSPI_SR", addr);
+  qspi_bus_read32(addr, sr_data, err_rsp);
 
   if (err_rsp)
     `uvm_error("QSPI_INIT", "SR debug read error")
@@ -560,7 +563,8 @@ task qspi_indirect_seq_c::qspi_init();
 endtask
 
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-task qspi_indirect_seq_c::configure_frame_format();
+// Configure frame format.
+task qspi_indirect_seq_c::qspi_configure_frame_format();
   bit [31:0] addr;
   bit [31:0] tmp_data;
   bit        err_rsp;
@@ -568,11 +572,11 @@ task qspi_indirect_seq_c::configure_frame_format();
   this.randomize();
 
   //Communication configuration register
-  qspi_get_reg_addr("QSPI_CCR", addr);
-  reg_read32(addr, tmp_data, err_rsp);
-  tmp_data=pack_ccr();
-  reg_write32(addr, tmp_data);
+  qspi_lookup_register_address("QSPI_CCR", addr);
+  qspi_bus_read32(addr, tmp_data, err_rsp);
+  tmp_data=qspi_pack_command_configuration();
+  qspi_bus_write32(addr, tmp_data);
 
-endtask: configure_frame_format
+endtask: qspi_configure_frame_format
 
 `endif

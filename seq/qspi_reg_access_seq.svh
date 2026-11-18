@@ -2,6 +2,7 @@
 `ifndef QSPI_REG_ACESS_SEQ_C_SVH
 `define QSPI_REG_ACESS_SEQ_C_SVH
 
+// QSPI reg access seq.
 class qspi_reg_rw_seq_c extends qspi_base_seq_c;
 
   `uvm_object_utils(qspi_reg_rw_seq_c)
@@ -13,14 +14,15 @@ class qspi_reg_rw_seq_c extends qspi_base_seq_c;
   // Check register reset/default value
   // ---------------------------------------------------------
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-  task automatic check_default_value(
+  // Check register reset.
+  task automatic qspi_check_register_reset(
     input qspi_reg_info_t reg_info
   );
 
     bit [31:0] read_data;
     bit        err_rsp;
 
-    reg_read32(reg_info.addr, read_data, err_rsp);
+    qspi_bus_read32(reg_info.addr, read_data, err_rsp);
 
     if ((read_data & reg_info.reset_mask) !==
         (reg_info.reset_value & reg_info.reset_mask)) begin
@@ -65,7 +67,8 @@ class qspi_reg_rw_seq_c extends qspi_base_seq_c;
   // Write register, read it back, and compare writable bits
   // ---------------------------------------------------------
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-  task automatic write_readback_check(
+  // Check register write readback.
+  task automatic qspi_check_register_write_readback(
     input qspi_reg_info_t reg_info
   );
 
@@ -78,10 +81,10 @@ class qspi_reg_rw_seq_c extends qspi_base_seq_c;
     write_data = write_data & reg_info.write_mask;
 
     // Write register.
-    reg_write32(reg_info.addr, write_data);
+    qspi_bus_write32(reg_info.addr, write_data);
 
     // Read back the written register.
-    reg_read32(reg_info.addr, read_data, err_rsp);
+    qspi_bus_read32(reg_info.addr, read_data, err_rsp);
 
     // Compare only bits defined as writable.
     if ((read_data & reg_info.write_mask) !==
@@ -116,6 +119,7 @@ class qspi_reg_rw_seq_c extends qspi_base_seq_c;
   // Sequence body
   // ---------------------------------------------------------
 //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+  // Run this scenario: reg access seq. Check failures are reported through UVM.
   virtual task body();
     int CCR_idx;
 
@@ -126,7 +130,7 @@ class qspi_reg_rw_seq_c extends qspi_base_seq_c;
     `uvm_info("QSPI_REG_SEQ", "STEP 1: Checking default values", UVM_LOW)
 
     foreach (QSPI_RW_REGS[i]) begin
-      check_default_value(QSPI_RW_REGS[i]);
+      qspi_check_register_reset(QSPI_RW_REGS[i]);
     end
 
     // Step 2 and 3:
@@ -138,10 +142,10 @@ class qspi_reg_rw_seq_c extends qspi_base_seq_c;
         CCR_idx =i;
         continue;
       end
-      write_readback_check(QSPI_RW_REGS[i]);
+      qspi_check_register_write_readback(QSPI_RW_REGS[i]);
     end
 
-    write_readback_check(QSPI_RW_REGS[CCR_idx]);
+    qspi_check_register_write_readback(QSPI_RW_REGS[CCR_idx]);
 
     `uvm_info("QSPI_REG_SEQ", "Finished QSPI register validation", UVM_LOW)
 
@@ -149,6 +153,7 @@ class qspi_reg_rw_seq_c extends qspi_base_seq_c;
 
 endclass
 
+// Construct this object and initialize its inherited UVM state.
 function qspi_reg_rw_seq_c::new(string name = "qspi_reg_rw_seq_c");
     super.new(name);
   endfunction : new

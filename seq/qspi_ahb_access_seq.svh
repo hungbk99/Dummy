@@ -1,6 +1,7 @@
 `ifndef QSPI_AHB_ACCESS_SEQ_SVH
 `define QSPI_AHB_ACCESS_SEQ_SVH
 
+// QSPI ahb access seq.
 class qspi_ahb_access_seq_c extends uvm_sequence #(ahb_master_transaction);
   `uvm_object_utils(qspi_ahb_access_seq_c)
   bit [31:0] address;
@@ -9,10 +10,12 @@ class qspi_ahb_access_seq_c extends uvm_sequence #(ahb_master_transaction);
   bit incrementing;
   ahb_master_transaction result;
 
+  // Construct this object and initialize its inherited UVM state.
   function new(string name="qspi_ahb_access_seq_c");
     super.new(name);
   endfunction
 
+  // Run this scenario: ahb access seq. Check failures are reported through UVM.
   virtual task body();
     ahb_master_transaction req;
     req = ahb_master_transaction::type_id::create("req");

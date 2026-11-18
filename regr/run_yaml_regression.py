@@ -99,15 +99,13 @@ def main():
             raise ValueError('--binary requires --no-build')
         if set(overrides) - {profile for profile, _ in jobs}:
             raise ValueError('--binary names a profile not used by this vector')
-        if not args.dry_run and any(case not in {'indirect_smoke', 'xip'} for cases in jobs.values() for case in cases):
-            require_solver()
         plans = {}
         for profile, _ in jobs:
             if profile not in plans:
                 command, cwd, binary = build_command(data['profiles'][profile]['config'], args.arun.resolve())
                 command.extend(compile_options)
                 plans[profile] = command, cwd, binary
-        output = (args.out or ROOT / '../../../../SIM/qspi_testplan/yaml_regression' / args.vectors.stem).resolve()
+        output = (args.out or ROOT / '../../../../SIM/qspi_regr/yaml_regression' / args.vectors.stem).resolve()
         if not args.dry_run:
             output.mkdir(parents=True, exist_ok=True)
         for profile, (command, cwd, binary) in plans.items():
@@ -143,7 +141,9 @@ def main():
                                 'binary_sha256': batch.get('binary_sha256')})
         if not args.dry_run:
             passed = all(x['returncode'] == 0 and x['cases'] for x in results)
-            summary = {'vectors': str(args.vectors.resolve()), 'status': 'PASS' if passed else 'FAIL',
+            statuses = {case['status'] for batch in results for case in batch['cases']}
+            status = 'PASS' if passed else ('BLOCKED' if statuses <= {'PASS', 'BLOCKED'} and 'BLOCKED' in statuses else 'FAIL')
+            summary = {'vectors': str(args.vectors.resolve()), 'status': status,
                        'reused_binaries': args.no_build, 'common': data.get('common', {}), 'runs': results}
             (output / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
             print(f'{summary["status"]}: {output / "summary.json"}')

@@ -216,30 +216,3 @@ const qspi_reg_info_t QSPI_RW_REGS [0:16] = '{
     }
 
 };
-
-
-//FIXME // ============================================================
-//FIXME // Get register address by name
-//FIXME // ============================================================
-//FIXME
-//FIXME function automatic bit qspi_get_reg_addr(
-//FIXME     input  string     reg_name,
-//FIXME     output bit [31:0] addr
-//FIXME );
-//FIXME
-//FIXME     foreach (QSPI_RW_REGS[i]) begin
-//FIXME
-//FIXME         if (QSPI_RW_REGS[i].name == reg_name) begin
-//FIXME             addr = QSPI_RW_REGS[i].addr;
-//FIXME             return 1'b1;
-//FIXME         end
-//FIXME
-//FIXME     end
-//FIXME
-//FIXME     addr = '0;
-//FIXME     return 1'b0;
-//FIXME
-//FIXME endfunction
-
-
-  

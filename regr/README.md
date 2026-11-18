@@ -25,8 +25,10 @@ The active AHB master agent `m_ahb_agent` drives memory-mapped/XIP requests thro
 its sequencer and returns read data and HRESP to the checks. Sequential reads use
 INCR bursts split at 1 KiB boundaries. The DUT provides the slave responses.
 `connect/qspi_connect.svh` owns the AHB wiring, virtual-interface registration,
-and `qspi_test_if` instance. The latter observes clocks, resets, IRQ, serial/APB
-activity and drives DMA clear signals; it does not drive AHB transactions.
+and pin observation/assertion logic. Clock/reset checks use SVA. IRQ observation
+uses `qspi_irq_if`; DMA requests and clear pulses use the separate `qspi_dma_if`.
+The passive `qspi_monitor_if` counts serial frames/SCLK edges and checks
+CS setup/hold/idle timing with SVA; sequences configure the required minima.
 
 ## Sequence structure
 

@@ -1,0 +1,101 @@
+{
+  "simulator": "vcs",
+  "stimulus": "constrained-random",
+  "seeds": [
+    1,
+    7,
+    42
+  ],
+  "tests": [
+    {
+      "case": "registers",
+      "test": "qspi_register_test_c",
+      "sequence": "qspi_register_access_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "clocks",
+      "test": "qspi_clock_reset_test_c",
+      "sequence": "qspi_clock_reset_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "indirect",
+      "test": "qspi_indirect_test_c",
+      "sequence": "qspi_indirect_matrix_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "polling",
+      "test": "qspi_polling_test_c",
+      "sequence": "qspi_polling_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "xip",
+      "test": "qspi_xip_test_c",
+      "sequence": "qspi_xip_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "mixed",
+      "test": "qspi_mode_switch_test_c",
+      "sequence": "qspi_mode_switch_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "irq",
+      "test": "qspi_interrupt_test_c",
+      "sequence": "qspi_interrupt_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "abort",
+      "test": "qspi_abort_test_c",
+      "sequence": "qspi_abort_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "frames",
+      "test": "qspi_frame_format_test_c",
+      "sequence": "qspi_frame_format_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "fifo",
+      "test": "qspi_fifo_test_c",
+      "sequence": "qspi_fifo_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "delays",
+      "test": "qspi_delay_test_c",
+      "sequence": "qspi_delay_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "dma",
+      "test": "qspi_dma_test_c",
+      "sequence": "qspi_dma_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "sioo",
+      "test": "qspi_sioo_test_c",
+      "sequence": "qspi_sioo_seq_c",
+      "profile": "normal"
+    },
+    {
+      "case": "timeout",
+      "test": "qspi_ahb_timeout_test_c",
+      "sequence": "qspi_ahb_timeout_seq_c",
+      "profile": "timeout"
+    },
+    {
+      "case": "indirect_smoke",
+      "test": "qspi_base_test_c",
+      "sequence": "qspi_indirect_seq_c",
+      "profile": "normal"
+    }
+  ]
+}

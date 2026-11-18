@@ -10,7 +10,7 @@ package qspi_seq_pkg;
   import qspi_env_pkg::*;
 
   `include "uvm_macros.svh"
-  `include "qspi_ahb_access_seq.svh"
+  `include "qspi_macros.svh"
   `include "qspi_base_seq.svh"
   `include "qspi_reg_access_seq.svh"
   `include "qspi_transfer_base_seq.svh"
